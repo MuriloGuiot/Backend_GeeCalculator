@@ -586,7 +586,7 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\muckz\\.nuget\\packages\\": {},
+    "C:\\Users\\muckz\\code\\backend_gogreen\\GEE_Calculator\\.dotnet\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
@@ -595,7 +595,7 @@
       "projectUniqueName": "C:\\Users\\muckz\\code\\backend_gogreen\\GEE_Calculator\\GEE_Calculator\\GEE_Calculator.csproj",
       "projectName": "GEE_Calculator",
       "projectPath": "C:\\Users\\muckz\\code\\backend_gogreen\\GEE_Calculator\\GEE_Calculator\\GEE_Calculator.csproj",
-      "packagesPath": "C:\\Users\\muckz\\.nuget\\packages\\",
+      "packagesPath": "C:\\Users\\muckz\\code\\backend_gogreen\\GEE_Calculator\\.dotnet\\.nuget\\packages\\",
       "outputPath": "C:\\Users\\muckz\\code\\backend_gogreen\\GEE_Calculator\\GEE_Calculator\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
@@ -629,7 +629,7 @@
         "auditLevel": "low",
         "auditMode": "all"
       },
-      "SdkAnalysisLevel": "10.0.100"
+      "SdkAnalysisLevel": "10.0.200"
     },
     "frameworks": {
       "net10.0": {
@@ -667,7 +667,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.103/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.202/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.AspNetCore": "(,10.0.32767]",
           "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",
