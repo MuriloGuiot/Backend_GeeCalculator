@@ -1,0 +1,39 @@
+services:
+  gee-calculator-api:
+    container_name: gee-calculator-api
+    build:
+      context: .
+      dockerfile: GEE_Calculator/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=gee-calculator-postgres;Port=5432;Database=gee_calculator;Username=gee_user;Password=gee_password
+      Authentication__Keycloak__Authority: ""
+      Authentication__Keycloak__Audience: ""
+      Authentication__Keycloak__RequireHttpsMetadata: "false"
+      GoGreen__CurrentUserEndpoint: ""
+    depends_on:
+      gee-calculator-postgres:
+        condition: service_healthy
+
+  gee-calculator-postgres:
+    container_name: gee-calculator-postgres
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: gee_calculator
+      POSTGRES_USER: gee_user
+      POSTGRES_PASSWORD: gee_password
+    volumes:
+      - gee_calculator_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gee_user -d gee_calculator"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  gee_calculator_postgres_data:

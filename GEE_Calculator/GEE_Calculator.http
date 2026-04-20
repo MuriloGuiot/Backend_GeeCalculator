@@ -1,0 +1,28 @@
+@GEE_Calculator_HostAddress = http://localhost:5012
+
+GET {{GEE_Calculator_HostAddress}}/api/health
+Accept: application/json
+
+###
+
+GET {{GEE_Calculator_HostAddress}}/api/auth/me
+Accept: application/json
+X-Tenant-Id: tenant-demo
+X-Company-Id: company-demo
+
+###
+
+POST {{GEE_Calculator_HostAddress}}/api/calculations/preview
+Content-Type: application/json
+Accept: application/json
+
+{
+  "scope": 2,
+  "category": "energia_eletrica_sin",
+  "activityValue": 1500,
+  "activityUnit": "kWh",
+  "emissionFactorKgCo2e": 0.0385,
+  "gwp": 1
+}
+
+###
