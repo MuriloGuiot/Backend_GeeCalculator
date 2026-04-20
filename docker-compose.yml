@@ -22,13 +22,14 @@ services:
     container_name: gee-calculator-postgres
     image: postgres:16-alpine
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: gee_calculator
       POSTGRES_USER: gee_user
       POSTGRES_PASSWORD: gee_password
     volumes:
       - gee_calculator_postgres_data:/var/lib/postgresql/data
+      - ./database/postgresql/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U gee_user -d gee_calculator"]
       interval: 10s

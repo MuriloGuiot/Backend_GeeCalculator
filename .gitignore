@@ -1,0 +1,22 @@
+# Visual Studio / IDE
+.vs/
+*.user
+*.suo
+
+# .NET build outputs
+bin/
+obj/
+artifacts/build-validation/
+
+# Local .NET/NuGet caches created for sandboxed builds
+.dotnet/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS/editor noise
+Thumbs.db
+Desktop.ini
+.DS_Store
