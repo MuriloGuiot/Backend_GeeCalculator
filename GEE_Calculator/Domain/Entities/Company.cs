@@ -1,6 +1,8 @@
+using GEE_Calculator.Domain.Abstractions;
+
 namespace GEE_Calculator.Domain.Entities;
 
-public sealed class Company
+public sealed class Company : ITenantOwnedEntity
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid TenantId { get; init; }

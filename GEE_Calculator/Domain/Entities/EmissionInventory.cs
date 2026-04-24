@@ -1,8 +1,9 @@
+using GEE_Calculator.Domain.Abstractions;
 using GEE_Calculator.Domain.Enums;
 
 namespace GEE_Calculator.Domain.Entities;
 
-public sealed class EmissionInventory
+public sealed class EmissionInventory : ITenantOwnedEntity
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid TenantId { get; init; }

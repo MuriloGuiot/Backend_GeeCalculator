@@ -1,12 +1,16 @@
 using System.Security.Claims;
+using GEE_Calculator.Application.Tenancy;
 
 namespace GEE_Calculator.Application.Auth;
 
-public sealed class CurrentUserContext(IHttpContextAccessor httpContextAccessor) : ICurrentUserContext
+public sealed class CurrentUserContext(
+    IHttpContextAccessor httpContextAccessor,
+    ICurrentTenantAccessor currentTenantAccessor) : ICurrentUserContext
 {
     public CurrentUserSnapshot GetCurrentUser()
     {
         var user = httpContextAccessor.HttpContext?.User;
+        var currentTenant = currentTenantAccessor.GetCurrentTenant();
 
         if (user?.Identity?.IsAuthenticated is not true)
         {
@@ -14,8 +18,8 @@ public sealed class CurrentUserContext(IHttpContextAccessor httpContextAccessor)
                 Subject: null,
                 Email: null,
                 Name: null,
-                TenantId: ReadHeader("X-Tenant-Id"),
-                CompanyId: ReadHeader("X-Company-Id"),
+                TenantId: currentTenant.TenantId,
+                CompanyId: currentTenant.CompanyId,
                 Roles: [],
                 IsAuthenticated: false);
         }
@@ -24,16 +28,10 @@ public sealed class CurrentUserContext(IHttpContextAccessor httpContextAccessor)
             Subject: ReadClaim(user, ClaimTypes.NameIdentifier, "sub"),
             Email: ReadClaim(user, ClaimTypes.Email, "email"),
             Name: ReadClaim(user, ClaimTypes.Name, "name", "preferred_username"),
-            TenantId: ReadClaim(user, "tenant_id", "tenantId") ?? ReadHeader("X-Tenant-Id"),
-            CompanyId: ReadClaim(user, "company_id", "companyId") ?? ReadHeader("X-Company-Id"),
+            TenantId: ReadClaim(user, "tenant_id", "tenantId") ?? currentTenant.TenantId,
+            CompanyId: ReadClaim(user, "company_id", "companyId") ?? currentTenant.CompanyId,
             Roles: ReadRoles(user),
             IsAuthenticated: true);
-    }
-
-    private string? ReadHeader(string name)
-    {
-        var headers = httpContextAccessor.HttpContext?.Request.Headers;
-        return headers is not null && headers.TryGetValue(name, out var value) ? value.ToString() : null;
     }
 
     private static string? ReadClaim(ClaimsPrincipal user, params string[] claimTypes)
