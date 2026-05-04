@@ -1,3 +1,5 @@
+using GEE_Calculator.Application.Auth;
+
 namespace GEE_Calculator.Application.Tenancy;
 
 public sealed class TenantHeaderRequirementMiddleware(RequestDelegate next)
@@ -9,12 +11,50 @@ public sealed class TenantHeaderRequirementMiddleware(RequestDelegate next)
         "/api/health"
     ];
 
-    public async Task InvokeAsync(HttpContext context, ICurrentTenantAccessor tenantAccessor)
+    public async Task InvokeAsync(
+        HttpContext context,
+        ICurrentTenantAccessor tenantAccessor,
+        IApiKeyValidator apiKeyValidator)
     {
         if (ShouldSkip(context.Request.Path))
         {
             await next(context);
             return;
+        }
+
+        var apiKey = context.Request.Headers[TenantRequestHeaders.ApiKey].ToString();
+
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            var validatedApiKey = await apiKeyValidator.ValidateAsync(apiKey, context.RequestAborted);
+
+            if (validatedApiKey is null)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    error = "invalid_api_key",
+                    message = $"The {TenantRequestHeaders.ApiKey} header is invalid or inactive."
+                });
+                return;
+            }
+
+            var currentTenantHeader = context.Request.Headers[TenantRequestHeaders.TenantId].ToString();
+
+            if (string.IsNullOrWhiteSpace(currentTenantHeader))
+            {
+                context.Request.Headers[TenantRequestHeaders.TenantId] = validatedApiKey.TenantId.ToString();
+            }
+            else if (!string.Equals(currentTenantHeader, validatedApiKey.TenantId.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    error = "tenant_api_key_mismatch",
+                    message = $"The {TenantRequestHeaders.TenantId} header does not match the informed API key."
+                });
+                return;
+            }
         }
 
         var currentTenant = tenantAccessor.GetCurrentTenant();

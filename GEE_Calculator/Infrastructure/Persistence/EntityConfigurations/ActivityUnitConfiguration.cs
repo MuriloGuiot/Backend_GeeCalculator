@@ -10,6 +10,7 @@ public sealed class ActivityUnitConfiguration : IEntityTypeConfiguration<Activit
     {
         builder.ToTable("activity_units");
         builder.HasKey(entity => entity.Id);
+        builder.HasIndex(entity => entity.Code).IsUnique();
 
         builder.Property(entity => entity.Id).HasColumnName("id");
         builder.Property(entity => entity.Code).HasColumnName("code").HasMaxLength(40);

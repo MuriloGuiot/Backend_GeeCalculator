@@ -316,11 +316,26 @@ Trilha de auditoria tecnica.
 6. O calculo aplica `atividade * fator_kg_co2e_per_unit`.
 7. A execucao e os resultados sao gravados em `calculation_runs` e `calculation_results`.
 
+## Estado atual da implementacao
+
+No estado atual do projeto:
+
+- o backend ja usa EF Core/Npgsql;
+- o `DbContext` ja existe;
+- o contexto de tenant por header ja foi implementado;
+- a API Key simplificada de desenvolvimento ja foi prevista;
+- existem seeds tecnicos iniciais para ambiente local;
+- o fluxo `POST /api/calculations/run` ja grava inventario, entradas e resultados.
+
+Valores de desenvolvimento local:
+
+- `X-Tenant-Id: 11111111-1111-1111-1111-111111111111`
+- `X-Api-Key: gee_dev_local_2026`
+
 ## Pendencias para proximas etapas
 
-- Criar seeds iniciais para unidades, categorias, gases e fontes.
-- Definir categorias prioritarias dos Escopos 1, 2 e 3.
-- Definir fonte oficial inicial dos fatores de emissao.
-- Implementar camada de contexto de tenant por header.
-- Implementar API Key simplificada para ambiente de desenvolvimento.
-- Conectar a API ao PostgreSQL via EF Core/Npgsql.
+- ampliar seeds com fatores oficiais e categorias adicionais dos Escopos 1, 2 e 3;
+- definir a primeira fonte oficial homologada de fatores de emissao;
+- substituir a autenticacao temporaria pela integracao oficial da GoLedger quando disponivel;
+- ampliar testes automatizados e cenarios de validacao;
+- evoluir filtros de tenant e auditoria conforme a API ganhar novos endpoints.

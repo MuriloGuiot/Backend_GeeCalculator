@@ -10,6 +10,9 @@ public sealed class ApiClientConfiguration : IEntityTypeConfiguration<ApiClient>
     {
         builder.ToTable("api_clients");
         builder.HasKey(entity => entity.Id);
+        builder.HasIndex(entity => entity.TenantId);
+        builder.HasIndex(entity => entity.KeyPrefix).IsUnique();
+        builder.HasIndex(entity => entity.KeyHash).IsUnique();
 
         builder.Property(entity => entity.Id).HasColumnName("id");
         builder.Property(entity => entity.TenantId).HasColumnName("tenant_id");
@@ -19,5 +22,10 @@ public sealed class ApiClientConfiguration : IEntityTypeConfiguration<ApiClient>
         builder.Property(entity => entity.IsActive).HasColumnName("is_active");
         builder.Property(entity => entity.CreatedAt).HasColumnName("created_at");
         builder.Property(entity => entity.RevokedAt).HasColumnName("revoked_at");
+
+        builder.HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(entity => entity.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

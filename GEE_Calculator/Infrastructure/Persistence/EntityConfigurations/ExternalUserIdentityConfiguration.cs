@@ -10,6 +10,9 @@ public sealed class ExternalUserIdentityConfiguration : IEntityTypeConfiguration
     {
         builder.ToTable("external_user_identities");
         builder.HasKey(entity => entity.Id);
+        builder.HasIndex(entity => entity.TenantId);
+        builder.HasIndex(entity => new { entity.TenantId, entity.Provider, entity.ExternalUserId })
+            .IsUnique();
 
         builder.Property(entity => entity.Id).HasColumnName("id");
         builder.Property(entity => entity.TenantId).HasColumnName("tenant_id");
@@ -18,5 +21,10 @@ public sealed class ExternalUserIdentityConfiguration : IEntityTypeConfiguration
         builder.Property(entity => entity.Email).HasColumnName("email").HasMaxLength(320);
         builder.Property(entity => entity.DisplayName).HasColumnName("display_name").HasMaxLength(200);
         builder.Property(entity => entity.CreatedAt).HasColumnName("created_at");
+
+        builder.HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(entity => entity.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

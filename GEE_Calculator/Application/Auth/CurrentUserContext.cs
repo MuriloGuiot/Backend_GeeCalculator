@@ -14,6 +14,18 @@ public sealed class CurrentUserContext(
 
         if (user?.Identity?.IsAuthenticated is not true)
         {
+            if (!string.IsNullOrWhiteSpace(currentTenant.ApiKeyPrefix))
+            {
+                return new CurrentUserSnapshot(
+                    Subject: $"api-key:{currentTenant.ApiKeyPrefix}",
+                    Email: null,
+                    Name: "API Key Client",
+                    TenantId: currentTenant.TenantId,
+                    CompanyId: currentTenant.CompanyId,
+                    Roles: [],
+                    IsAuthenticated: true);
+            }
+
             return new CurrentUserSnapshot(
                 Subject: null,
                 Email: null,

@@ -10,6 +10,8 @@ public sealed class EmissionFactorSetConfiguration : IEntityTypeConfiguration<Em
     {
         builder.ToTable("emission_factor_sets");
         builder.HasKey(entity => entity.Id);
+        builder.HasIndex(entity => new { entity.Code, entity.VersionLabel }).IsUnique();
+        builder.HasIndex(entity => new { entity.SourceId, entity.VersionYear });
 
         builder.Property(entity => entity.Id).HasColumnName("id");
         builder.Property(entity => entity.SourceId).HasColumnName("source_id");
@@ -20,5 +22,16 @@ public sealed class EmissionFactorSetConfiguration : IEntityTypeConfiguration<Em
         builder.Property(entity => entity.ValidFrom).HasColumnName("valid_from");
         builder.Property(entity => entity.ValidTo).HasColumnName("valid_to");
         builder.Property(entity => entity.CreatedAt).HasColumnName("created_at");
+
+        builder.HasOne<EmissionFactorSource>()
+            .WithMany()
+            .HasForeignKey(entity => entity.SourceId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.ToTable(table =>
+        {
+            table.HasCheckConstraint("ck_emission_factor_sets_version_year", "version_year between 2000 and 2100");
+            table.HasCheckConstraint("ck_emission_factor_sets_valid_range", "valid_to is null or valid_from is null or valid_to >= valid_from");
+        });
     }
 }

@@ -10,6 +10,8 @@ public sealed class TenantConfiguration : IEntityTypeConfiguration<Tenant>
     {
         builder.ToTable("tenants");
         builder.HasKey(entity => entity.Id);
+        builder.HasIndex(entity => entity.ExternalTenantId)
+            .IsUnique();
 
         builder.Property(entity => entity.Id).HasColumnName("id");
         builder.Property(entity => entity.ExternalTenantId).HasColumnName("external_tenant_id").HasMaxLength(120);

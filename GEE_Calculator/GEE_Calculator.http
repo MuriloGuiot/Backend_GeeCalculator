@@ -1,4 +1,6 @@
-@GEE_Calculator_HostAddress = http://localhost:5012
+@GEE_Calculator_HostAddress = http://localhost:8080
+@TenantId = 11111111-1111-1111-1111-111111111111
+@ApiKey = gee_dev_local_2026
 
 GET {{GEE_Calculator_HostAddress}}/api/health
 Accept: application/json
@@ -7,14 +9,17 @@ Accept: application/json
 
 GET {{GEE_Calculator_HostAddress}}/api/auth/me
 Accept: application/json
-X-Tenant-Id: tenant-demo
+X-Tenant-Id: {{TenantId}}
 X-Company-Id: company-demo
+X-Api-Key: {{ApiKey}}
 
 ###
 
 POST {{GEE_Calculator_HostAddress}}/api/calculations/preview
 Content-Type: application/json
 Accept: application/json
+X-Tenant-Id: {{TenantId}}
+X-Api-Key: {{ApiKey}}
 
 {
   "scope": 2,
@@ -23,6 +28,41 @@ Accept: application/json
   "activityUnit": "kWh",
   "emissionFactorKgCo2e": 0.0385,
   "gwp": 1
+}
+
+###
+
+POST {{GEE_Calculator_HostAddress}}/api/calculations/run
+Content-Type: application/json
+Accept: application/json
+X-Tenant-Id: {{TenantId}}
+X-Api-Key: {{ApiKey}}
+
+{
+  "companyLegalName": "Empresa Demo AgrocarbonBR",
+  "companyTradeName": "Empresa Demo",
+  "companyTaxId": "00.000.000/0001-00",
+  "externalCompanyId": "empresa-demo-001",
+  "periodType": 1,
+  "year": 2026,
+  "month": 4,
+  "factorSetCode": "dev_seed_2026",
+  "entries": [
+    {
+      "categoryCode": "energia_eletrica_sin",
+      "activityUnitCode": "kWh",
+      "activityValue": 1500,
+      "evidenceRef": "fatura-abril-2026.pdf",
+      "metadataJson": "{\"source\":\"swagger\"}"
+    },
+    {
+      "categoryCode": "diesel_rodoviario",
+      "activityUnitCode": "L",
+      "activityValue": 300,
+      "evidenceRef": "abastecimentos-abril.csv",
+      "metadataJson": "{\"fleet\":\"caminhoes\"}"
+    }
+  ]
 }
 
 ###

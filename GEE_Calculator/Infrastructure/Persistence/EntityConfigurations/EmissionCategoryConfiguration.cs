@@ -11,6 +11,8 @@ public sealed class EmissionCategoryConfiguration : IEntityTypeConfiguration<Emi
     {
         builder.ToTable("emission_categories");
         builder.HasKey(entity => entity.Id);
+        builder.HasIndex(entity => entity.Code).IsUnique();
+        builder.HasIndex(entity => entity.Scope);
 
         builder.Property(entity => entity.Id).HasColumnName("id");
         builder.Property(entity => entity.Scope)
@@ -23,6 +25,11 @@ public sealed class EmissionCategoryConfiguration : IEntityTypeConfiguration<Emi
         builder.Property(entity => entity.Description).HasColumnName("description");
         builder.Property(entity => entity.ParentCategoryId).HasColumnName("parent_category_id");
         builder.Property(entity => entity.CreatedAt).HasColumnName("created_at");
+
+        builder.HasOne<EmissionCategory>()
+            .WithMany()
+            .HasForeignKey(entity => entity.ParentCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     private static string ConvertScope(EmissionScope scope)

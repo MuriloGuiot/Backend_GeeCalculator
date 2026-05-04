@@ -1,4 +1,5 @@
 using GEE_Calculator.Application.Tenancy;
+using GEE_Calculator.Infrastructure.Persistence;
 
 namespace GEE_Calculator;
 
@@ -27,6 +28,15 @@ public static class WebApplicationExtensions
     public static WebApplication UseTenantResolution(this WebApplication app)
     {
         app.UseMiddleware<TenantHeaderRequirementMiddleware>();
+        return app;
+    }
+
+    public static async Task<WebApplication> InitializeDatabaseAsync(this WebApplication app)
+    {
+        using var scope = app.Services.CreateScope();
+        var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
+        await initializer.InitializeAsync();
+
         return app;
     }
 }

@@ -23,4 +23,23 @@ public sealed class CalculationsController(IEmissionCalculationService calculati
             });
         }
     }
+
+    [HttpPost("run")]
+    public async Task<ActionResult<RunEmissionCalculationResponse>> Run(
+        RunEmissionCalculationRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await calculationService.RunAsync(request, cancellationToken));
+        }
+        catch (EmissionCalculationException exception)
+        {
+            return BadRequest(new
+            {
+                error = "calculation_error",
+                message = exception.Message
+            });
+        }
+    }
 }

@@ -1,3 +1,5 @@
+using GEE_Calculator.Application.Auth;
+using GEE_Calculator.Infrastructure.Auth;
 using GEE_Calculator.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,6 +11,8 @@ public static class DependencyInjection
     {
         services.AddDbContext<GeeCalculatorDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
+        services.AddScoped<DatabaseInitializer>();
+        services.AddScoped<IApiKeyValidator, ApiKeyValidator>();
 
         return services;
     }

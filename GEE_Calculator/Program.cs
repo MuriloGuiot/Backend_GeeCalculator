@@ -14,6 +14,7 @@ builder.Services
 
 var app = builder.Build();
 
+await app.InitializeDatabaseAsync();
 app.UseApiDocumentation();
 app.UseHttpsRedirection();
 app.UseTenantResolution();
