@@ -71,9 +71,10 @@ public sealed class EmissionCalculationService(
                 .Where(item => item.FactorSetId == factorSet.Id
                     && item.CategoryId == category.Id
                     && item.ActivityUnitId == unit.Id
-                    && item.TenantId == null)
-                .OrderBy(item => item.CreatedAt)
-                .SingleOrDefaultAsync(cancellationToken)
+                    && (item.TenantId == null || item.TenantId == tenant.Id))
+                .OrderByDescending(item => item.TenantId.HasValue)
+                .ThenByDescending(item => item.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken)
                 ?? throw new EmissionCalculationException(
                     $"Emission factor not found for category '{entryRequest.CategoryCode}' and unit '{entryRequest.ActivityUnitCode}'.");
 
@@ -227,6 +228,25 @@ public sealed class EmissionCalculationService(
         RunEmissionCalculationRequest request,
         CancellationToken cancellationToken)
     {
+        var existingInventoryQuery = dbContext.EmissionInventories
+            .Where(item => item.TenantId == tenantId
+                && item.CompanyId == companyId
+                && item.PeriodType == request.PeriodType
+                && item.Year == request.Year);
+
+        var existingInventory = request.PeriodType == PeriodType.Monthly
+            ? await existingInventoryQuery.SingleOrDefaultAsync(
+                item => item.Month == request.Month,
+                cancellationToken)
+            : await existingInventoryQuery.SingleOrDefaultAsync(
+                item => item.Month == null,
+                cancellationToken);
+
+        if (existingInventory is not null)
+        {
+            return existingInventory;
+        }
+
         var inventory = new EmissionInventory
         {
             TenantId = tenantId,

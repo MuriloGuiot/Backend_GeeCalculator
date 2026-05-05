@@ -9,9 +9,15 @@ public sealed class DatabaseInitializer(GeeCalculatorDbContext dbContext)
 {
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        // For the sprint bootstrap we prefer creating the schema from the current model
-        // so local environments stay aligned even while the factor model is still evolving.
-        await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+        try
+        {
+            await dbContext.Database.MigrateAsync(cancellationToken);
+        }
+        catch (InvalidOperationException exception) when (exception.Message.Contains("PendingModelChangesWarning", StringComparison.Ordinal))
+        {
+            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+        }
+
         await SeedCatalogsAsync(cancellationToken);
     }
 

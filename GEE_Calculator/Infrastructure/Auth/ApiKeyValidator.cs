@@ -19,6 +19,7 @@ public sealed class ApiKeyValidator(GeeCalculatorDbContext dbContext) : IApiKeyV
         var keyHash = ComputeSha256(normalizedApiKey);
 
         var client = await dbContext.ApiClients
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(item => item.IsActive && item.RevokedAt == null && item.KeyHash == keyHash)
             .SingleOrDefaultAsync(cancellationToken);

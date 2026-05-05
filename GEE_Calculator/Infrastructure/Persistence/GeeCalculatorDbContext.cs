@@ -2,6 +2,7 @@ using GEE_Calculator.Application.Tenancy;
 using GEE_Calculator.Domain.Abstractions;
 using GEE_Calculator.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection;
 
 namespace GEE_Calculator.Infrastructure.Persistence;
 
@@ -25,9 +26,23 @@ public sealed class GeeCalculatorDbContext(
     public DbSet<GreenhouseGas> GreenhouseGases => Set<GreenhouseGas>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
+    private Guid? CurrentTenantId
+    {
+        get
+        {
+            var tenantHeaderValue = currentTenantAccessor.GetCurrentTenant().TenantId;
+            return Guid.TryParse(tenantHeaderValue, out var tenantId) ? tenantId : null;
+        }
+    }
+
+    private bool HasTenantContext => CurrentTenantId.HasValue;
+
+    private Guid CurrentTenantIdOrDefault => CurrentTenantId ?? Guid.Empty;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(GeeCalculatorDbContext).Assembly);
+        ApplyTenantQueryFilters(modelBuilder);
     }
 
     public override int SaveChanges()
@@ -60,5 +75,28 @@ public sealed class GeeCalculatorDbContext(
         {
             throw new InvalidOperationException("One or more tenant-owned entities do not match the current tenant context.");
         }
+    }
+
+    private void ApplyTenantQueryFilters(ModelBuilder modelBuilder)
+    {
+        var tenantOwnedTypes = modelBuilder.Model
+            .GetEntityTypes()
+            .Where(entityType => typeof(ITenantOwnedEntity).IsAssignableFrom(entityType.ClrType))
+            .Select(entityType => entityType.ClrType);
+
+        var method = typeof(GeeCalculatorDbContext)
+            .GetMethod(nameof(ApplyTenantQueryFilter), BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        foreach (var entityType in tenantOwnedTypes)
+        {
+            method.MakeGenericMethod(entityType).Invoke(this, new object[] { modelBuilder });
+        }
+    }
+
+    private void ApplyTenantQueryFilter<TEntity>(ModelBuilder modelBuilder)
+        where TEntity : class, ITenantOwnedEntity
+    {
+        modelBuilder.Entity<TEntity>()
+            .HasQueryFilter(entity => !HasTenantContext || entity.TenantId == CurrentTenantIdOrDefault);
     }
 }

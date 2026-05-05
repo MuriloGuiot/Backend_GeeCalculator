@@ -35,14 +35,14 @@ docker compose down -v
 
 ## Observacoes
 
-- O banco sobe no Compose, mas a API ainda nao usa EF Core nem migrations.
+- A API tenta aplicar as migrations do EF Core no startup e usa bootstrap pelo modelo atual como fallback de desenvolvimento quando houver divergence de snapshot.
 - A connection string ja aponta para o host interno `gee-calculator-postgres`.
-- Em um volume novo, o PostgreSQL executa `database/postgresql/001_initial_schema.sql` e cria o dicionario de dados inicial.
+- O script `database/postgresql/001_initial_schema.sql` permanece como referencia do dicionario inicial e bootstrap manual.
 - Os campos de Keycloak e endpoint GoGreen ficam vazios ate recebermos os dados oficiais da GoLedger.
 
-## Recriar o banco com o schema inicial
+## Recriar o banco local
 
-Se o volume do PostgreSQL ja existir, scripts dentro de `/docker-entrypoint-initdb.d` nao rodam novamente. Para recriar o banco local com o dicionario inicial:
+Para recriar o banco local do zero e repetir o bootstrap da API:
 
 ```powershell
 docker compose down -v
