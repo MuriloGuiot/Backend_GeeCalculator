@@ -19,7 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\GEE_Calculator\GEE_Calculator.csproj" />
+    <ProjectReference Include="..\GEE_Calculator.Application\GEE_Calculator.Application.csproj" />
+    <ProjectReference Include="..\GEE_Calculator.Domain\GEE_Calculator.Domain.csproj" />
+    <ProjectReference Include="..\GEE_Calculator.Infrastructure\GEE_Calculator.Infrastructure.csproj" />
+    <ProjectReference Include="..\GEE_Calculator.WebApi\GEE_Calculator.WebApi.csproj" />
   </ItemGroup>
 
 </Project>

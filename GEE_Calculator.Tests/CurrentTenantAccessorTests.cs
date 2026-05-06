@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using GEE_Calculator.Application.Tenancy;
+using GEE_Calculator.WebApi.Tenancy;
 using Microsoft.AspNetCore.Http;
 
 namespace GEE_Calculator.Tests;

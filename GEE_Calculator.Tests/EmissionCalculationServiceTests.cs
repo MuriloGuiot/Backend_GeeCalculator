@@ -1,4 +1,5 @@
 using GEE_Calculator.Application.Calculations;
+using GEE_Calculator.Domain.Calculations;
 using GEE_Calculator.Domain.Enums;
 using GEE_Calculator.Infrastructure.Auth;
 
@@ -6,7 +7,7 @@ namespace GEE_Calculator.Tests;
 
 public sealed class EmissionCalculationServiceTests
 {
-    private static readonly EmissionCalculationService Service = new(dbContext: null!, currentTenantAccessor: null!);
+    private static readonly EmissionCalculationService Service = new(calculationRepository: null!, currentTenantAccessor: null!);
 
     [Fact]
     public void Preview_ShouldCalculateEmissionTotals()

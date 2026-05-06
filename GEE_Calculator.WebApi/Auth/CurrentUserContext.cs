@@ -1,0 +1,75 @@
+using System.Security.Claims;
+using GEE_Calculator.Domain.Auth;
+using GEE_Calculator.Domain.Tenancy;
+
+namespace GEE_Calculator.WebApi.Auth;
+
+public sealed class CurrentUserContext(
+    IHttpContextAccessor httpContextAccessor,
+    ICurrentTenantAccessor currentTenantAccessor) : ICurrentUserContext
+{
+    public CurrentUserSnapshot GetCurrentUser()
+    {
+        var user = httpContextAccessor.HttpContext?.User;
+        var currentTenant = currentTenantAccessor.GetCurrentTenant();
+
+        if (user?.Identity?.IsAuthenticated is not true)
+        {
+            if (!string.IsNullOrWhiteSpace(currentTenant.ApiKeyPrefix))
+            {
+                return new CurrentUserSnapshot(
+                    Subject: $"api-key:{currentTenant.ApiKeyPrefix}",
+                    Email: null,
+                    Name: "API Key Client",
+                    TenantId: currentTenant.TenantId,
+                    CompanyId: currentTenant.CompanyId,
+                    Roles: [],
+                    IsAuthenticated: true);
+            }
+
+            return new CurrentUserSnapshot(
+                Subject: null,
+                Email: null,
+                Name: null,
+                TenantId: currentTenant.TenantId,
+                CompanyId: currentTenant.CompanyId,
+                Roles: [],
+                IsAuthenticated: false);
+        }
+
+        return new CurrentUserSnapshot(
+            Subject: ReadClaim(user, ClaimTypes.NameIdentifier, "sub"),
+            Email: ReadClaim(user, ClaimTypes.Email, "email"),
+            Name: ReadClaim(user, ClaimTypes.Name, "name", "preferred_username"),
+            TenantId: ReadClaim(user, "tenant_id", "tenantId") ?? currentTenant.TenantId,
+            CompanyId: ReadClaim(user, "company_id", "companyId") ?? currentTenant.CompanyId,
+            Roles: ReadRoles(user),
+            IsAuthenticated: true);
+    }
+
+    private static string? ReadClaim(ClaimsPrincipal user, params string[] claimTypes)
+    {
+        foreach (var claimType in claimTypes)
+        {
+            var value = user.FindFirstValue(claimType);
+
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyCollection<string> ReadRoles(ClaimsPrincipal user)
+    {
+        return user.FindAll(ClaimTypes.Role)
+            .Concat(user.FindAll("role"))
+            .Concat(user.FindAll("roles"))
+            .Select(claim => claim.Value)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+}

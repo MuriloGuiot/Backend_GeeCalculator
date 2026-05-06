@@ -1,4 +1,8 @@
 <Solution>
+  <Project Path="GEE_Calculator.Application/GEE_Calculator.Application.csproj" />
+  <Project Path="GEE_Calculator.Domain/GEE_Calculator.Domain.csproj" />
+  <Project Path="GEE_Calculator.Infrastructure/GEE_Calculator.Infrastructure.csproj" />
+  <Project Path="GEE_Calculator.Integration/GEE_Calculator.Integration.csproj" />
   <Project Path="GEE_Calculator.Tests/GEE_Calculator.Tests.csproj" />
-  <Project Path="GEE_Calculator/GEE_Calculator.csproj" />
+  <Project Path="GEE_Calculator.WebApi/GEE_Calculator.WebApi.csproj" />
 </Solution>

@@ -3,7 +3,7 @@ services:
     container_name: gee-calculator-api
     build:
       context: .
-      dockerfile: GEE_Calculator/Dockerfile
+      dockerfile: GEE_Calculator.WebApi/Dockerfile
     ports:
       - "8080:8080"
     environment:
