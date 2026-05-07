@@ -15,6 +15,42 @@ X-Api-Key: {{ApiKey}}
 
 ###
 
+GET {{GEE_Calculator_HostAddress}}/api/companies
+Accept: application/json
+X-Tenant-Id: {{TenantId}}
+X-Api-Key: {{ApiKey}}
+
+###
+
+POST {{GEE_Calculator_HostAddress}}/api/companies
+Content-Type: application/json
+Accept: application/json
+X-Tenant-Id: {{TenantId}}
+X-Api-Key: {{ApiKey}}
+
+{
+  "legalName": "Empresa Demo AgrocarbonBR",
+  "tradeName": "Empresa Demo",
+  "taxId": "00.000.000/0001-00",
+  "externalCompanyId": "empresa-demo-001"
+}
+
+###
+
+GET {{GEE_Calculator_HostAddress}}/api/emission-factors/categories
+Accept: application/json
+X-Tenant-Id: {{TenantId}}
+X-Api-Key: {{ApiKey}}
+
+###
+
+GET {{GEE_Calculator_HostAddress}}/api/emission-factors?factorSetCode=dev_seed_2026
+Accept: application/json
+X-Tenant-Id: {{TenantId}}
+X-Api-Key: {{ApiKey}}
+
+###
+
 POST {{GEE_Calculator_HostAddress}}/api/calculations/preview
 Content-Type: application/json
 Accept: application/json
@@ -29,6 +65,20 @@ X-Api-Key: {{ApiKey}}
   "emissionFactorKgCo2e": 0.0385,
   "gwp": 1
 }
+
+###
+
+GET {{GEE_Calculator_HostAddress}}/api/inventories
+Accept: application/json
+X-Tenant-Id: {{TenantId}}
+X-Api-Key: {{ApiKey}}
+
+###
+
+GET {{GEE_Calculator_HostAddress}}/api/reports/emissions-dashboard?year=2026
+Accept: application/json
+X-Tenant-Id: {{TenantId}}
+X-Api-Key: {{ApiKey}}
 
 ###
 

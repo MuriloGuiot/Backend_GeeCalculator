@@ -5,11 +5,11 @@ namespace GEE_Calculator.WebApi.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController(ICurrentUserContext currentUserContext) : ControllerBase
+public sealed class AuthController(IAuthApplicationService authApplicationService) : ControllerBase
 {
     [HttpGet("me")]
-    public ActionResult<CurrentUserSnapshot> Me()
+    public async Task<ActionResult<CurrentUserSnapshot>> Me(CancellationToken cancellationToken)
     {
-        return Ok(currentUserContext.GetCurrentUser());
+        return Ok(await authApplicationService.GetCurrentUserAsync(cancellationToken));
     }
 }

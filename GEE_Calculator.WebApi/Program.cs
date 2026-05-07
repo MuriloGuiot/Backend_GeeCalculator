@@ -1,4 +1,5 @@
 using GEE_Calculator.Application;
+using GEE_Calculator.Application.Auth;
 using GEE_Calculator.Infrastructure;
 using GEE_Calculator.Integration;
 using GEE_Calculator.WebApi;
@@ -17,6 +18,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentTenantAccessor, CurrentTenantAccessor>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
+builder.Services.AddScoped<IAccessTokenReader, HttpAccessTokenReader>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -41,7 +43,7 @@ builder.Services.AddAuthorization();
 builder.Services
     .AddApplicationServices()
     .AddInfrastructureServices(builder.Configuration)
-    .AddIntegrationServices();
+    .AddIntegrationServices(builder.Configuration);
 
 var app = builder.Build();
 
