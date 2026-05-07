@@ -1,17 +1,23 @@
 using System.Security.Claims;
 using GEE_Calculator.Domain.Tenancy;
+using Microsoft.Extensions.Options;
 
 namespace GEE_Calculator.WebApi.Tenancy;
 
-public sealed class CurrentTenantAccessor(IHttpContextAccessor httpContextAccessor) : ICurrentTenantAccessor
+public sealed class CurrentTenantAccessor(
+    IHttpContextAccessor httpContextAccessor,
+    IOptions<TenancyOptions> options) : ICurrentTenantAccessor
 {
     public CurrentTenantSnapshot GetCurrentTenant()
     {
         var context = httpContextAccessor.HttpContext;
         var headers = context?.Request.Headers;
         var user = context?.User;
-        var tenantId = ReadHeader(headers, TenantRequestHeaders.TenantId) ?? ReadClaim(user, "tenant_id", "tenantId");
-        var companyId = ReadHeader(headers, TenantRequestHeaders.CompanyId) ?? ReadClaim(user, "company_id", "companyId");
+        var allowHeaderFallback = options.Value.AllowTenantHeaderFallback;
+        var tenantId = ReadClaim(user, "tenant_id", "tenantId", "organization_id", "organizationId")
+            ?? ReadHeaderWhenAllowed(headers, TenantRequestHeaders.TenantId, allowHeaderFallback);
+        var companyId = ReadClaim(user, "company_id", "companyId")
+            ?? ReadHeaderWhenAllowed(headers, TenantRequestHeaders.CompanyId, allowHeaderFallback);
         var apiKey = ReadHeader(headers, TenantRequestHeaders.ApiKey);
 
         return new CurrentTenantSnapshot(
@@ -19,6 +25,11 @@ public sealed class CurrentTenantAccessor(IHttpContextAccessor httpContextAccess
             CompanyId: companyId,
             ApiKeyPrefix: apiKey is null ? null : apiKey[..Math.Min(8, apiKey.Length)],
             IsResolved: !string.IsNullOrWhiteSpace(tenantId));
+    }
+
+    private static string? ReadHeaderWhenAllowed(IHeaderDictionary? headers, string headerName, bool allowHeaderFallback)
+    {
+        return allowHeaderFallback ? ReadHeader(headers, headerName) : null;
     }
 
     private static string? ReadHeader(IHeaderDictionary? headers, string headerName)

@@ -67,7 +67,7 @@ public sealed class DatabaseInitializer(GeeCalculatorDbContext dbContext)
                 Code = "agrocarbonbr_dev_seed",
                 Name = "AgrocarbonBR Development Seed",
                 Publisher = "AgrocarbonBR",
-                SourceUrl = "https://example.local/dev-seed"
+                SourceUrl = "local://agrocarbonbr/dev-seed"
             });
         }
 

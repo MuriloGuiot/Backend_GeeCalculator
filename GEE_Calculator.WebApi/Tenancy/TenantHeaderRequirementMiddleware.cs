@@ -1,5 +1,6 @@
 using GEE_Calculator.Domain.Auth;
 using GEE_Calculator.Domain.Tenancy;
+using Microsoft.Extensions.Options;
 
 namespace GEE_Calculator.WebApi.Tenancy;
 
@@ -15,7 +16,8 @@ public sealed class TenantHeaderRequirementMiddleware(RequestDelegate next)
     public async Task InvokeAsync(
         HttpContext context,
         ICurrentTenantAccessor tenantAccessor,
-        IApiKeyValidator apiKeyValidator)
+        IApiKeyValidator apiKeyValidator,
+        IOptions<TenancyOptions> options)
     {
         if (ShouldSkip(context.Request.Path))
         {
@@ -65,8 +67,10 @@ public sealed class TenantHeaderRequirementMiddleware(RequestDelegate next)
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             await context.Response.WriteAsJsonAsync(new
             {
-                error = "missing_tenant_header",
-                message = $"The {TenantRequestHeaders.TenantId} header is required for this endpoint."
+                error = "missing_tenant_context",
+                message = options.Value.AllowTenantHeaderFallback
+                    ? $"A tenant context is required. Use a GoGreen/Keycloak tenant claim, a valid API key, or the {TenantRequestHeaders.TenantId} development header."
+                    : "A tenant context is required. The authenticated GoGreen/Keycloak token must include a tenant_id or organization_id claim."
             });
             return;
         }

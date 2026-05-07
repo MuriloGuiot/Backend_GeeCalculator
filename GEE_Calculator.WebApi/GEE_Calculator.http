@@ -1,6 +1,6 @@
 @GEE_Calculator_HostAddress = http://localhost:8080
-@TenantId = 11111111-1111-1111-1111-111111111111
-@ApiKey = gee_dev_local_2026
+@DevelopmentTenantId = 11111111-1111-1111-1111-111111111111
+@DevelopmentApiKey = gee_dev_local_2026
 
 GET {{GEE_Calculator_HostAddress}}/api/health
 Accept: application/json
@@ -9,24 +9,24 @@ Accept: application/json
 
 GET {{GEE_Calculator_HostAddress}}/api/auth/me
 Accept: application/json
-X-Tenant-Id: {{TenantId}}
+X-Tenant-Id: {{DevelopmentTenantId}}
 X-Company-Id: company-demo
-X-Api-Key: {{ApiKey}}
+X-Api-Key: {{DevelopmentApiKey}}
 
 ###
 
 GET {{GEE_Calculator_HostAddress}}/api/companies
 Accept: application/json
-X-Tenant-Id: {{TenantId}}
-X-Api-Key: {{ApiKey}}
+X-Tenant-Id: {{DevelopmentTenantId}}
+X-Api-Key: {{DevelopmentApiKey}}
 
 ###
 
 POST {{GEE_Calculator_HostAddress}}/api/companies
 Content-Type: application/json
 Accept: application/json
-X-Tenant-Id: {{TenantId}}
-X-Api-Key: {{ApiKey}}
+X-Tenant-Id: {{DevelopmentTenantId}}
+X-Api-Key: {{DevelopmentApiKey}}
 
 {
   "legalName": "Empresa Demo AgrocarbonBR",
@@ -39,23 +39,23 @@ X-Api-Key: {{ApiKey}}
 
 GET {{GEE_Calculator_HostAddress}}/api/emission-factors/categories
 Accept: application/json
-X-Tenant-Id: {{TenantId}}
-X-Api-Key: {{ApiKey}}
+X-Tenant-Id: {{DevelopmentTenantId}}
+X-Api-Key: {{DevelopmentApiKey}}
 
 ###
 
 GET {{GEE_Calculator_HostAddress}}/api/emission-factors?factorSetCode=dev_seed_2026
 Accept: application/json
-X-Tenant-Id: {{TenantId}}
-X-Api-Key: {{ApiKey}}
+X-Tenant-Id: {{DevelopmentTenantId}}
+X-Api-Key: {{DevelopmentApiKey}}
 
 ###
 
 POST {{GEE_Calculator_HostAddress}}/api/calculations/preview
 Content-Type: application/json
 Accept: application/json
-X-Tenant-Id: {{TenantId}}
-X-Api-Key: {{ApiKey}}
+X-Tenant-Id: {{DevelopmentTenantId}}
+X-Api-Key: {{DevelopmentApiKey}}
 
 {
   "scope": 2,
@@ -70,23 +70,23 @@ X-Api-Key: {{ApiKey}}
 
 GET {{GEE_Calculator_HostAddress}}/api/inventories
 Accept: application/json
-X-Tenant-Id: {{TenantId}}
-X-Api-Key: {{ApiKey}}
+X-Tenant-Id: {{DevelopmentTenantId}}
+X-Api-Key: {{DevelopmentApiKey}}
 
 ###
 
 GET {{GEE_Calculator_HostAddress}}/api/reports/emissions-dashboard?year=2026
 Accept: application/json
-X-Tenant-Id: {{TenantId}}
-X-Api-Key: {{ApiKey}}
+X-Tenant-Id: {{DevelopmentTenantId}}
+X-Api-Key: {{DevelopmentApiKey}}
 
 ###
 
 POST {{GEE_Calculator_HostAddress}}/api/calculations/run
 Content-Type: application/json
 Accept: application/json
-X-Tenant-Id: {{TenantId}}
-X-Api-Key: {{ApiKey}}
+X-Tenant-Id: {{DevelopmentTenantId}}
+X-Api-Key: {{DevelopmentApiKey}}
 
 {
   "companyLegalName": "Empresa Demo AgrocarbonBR",

@@ -16,6 +16,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<TenancyOptions>(builder.Configuration.GetSection("Tenancy"));
 builder.Services.AddScoped<ICurrentTenantAccessor, CurrentTenantAccessor>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<IAccessTokenReader, HttpAccessTokenReader>();
