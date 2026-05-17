@@ -9,15 +9,7 @@ public sealed class DatabaseInitializer(GeeCalculatorDbContext dbContext)
 {
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        try
-        {
-            await dbContext.Database.MigrateAsync(cancellationToken);
-        }
-        catch (InvalidOperationException exception) when (exception.Message.Contains("PendingModelChangesWarning", StringComparison.Ordinal))
-        {
-            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
-        }
-
+        await dbContext.Database.MigrateAsync(cancellationToken);
         await SeedCatalogsAsync(cancellationToken);
     }
 

@@ -38,7 +38,7 @@ Construir a fundacao tecnica da calculadora GEE em .NET, com foco em:
 
 - Dicionario de dados inicial documentado.
 - Script SQL inicial versionado em `database/postgresql/001_initial_schema.sql`.
-- Migrations EF Core configuradas como fluxo principal de inicializacao, com fallback seguro de desenvolvimento para bootstrap pelo modelo atual.
+- Migrations EF Core configuradas como fluxo principal de inicializacao. A partir da estabilizacao da semana 3-4, divergencias de modelo devem ser corrigidas por migrations, sem fallback por bootstrap do modelo atual.
 - Modelo de dados preparado para:
   - `tenant_id`
   - empresas
@@ -106,7 +106,7 @@ Uso exclusivo para desenvolvimento local:
 
 - criacao da base EF Core/Npgsql;
 - criacao do `DbContext`;
-- inicializacao automatica do banco com tentativa por migrations e fallback de bootstrap local;
+- inicializacao automatica do banco por migrations EF Core;
 - endpoint preview implementado;
 - endpoint persistido de calculo implementado;
 - seeds locais preparados;

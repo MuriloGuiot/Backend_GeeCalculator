@@ -15,11 +15,13 @@ public sealed class EmissionFactorConfiguration : IEntityTypeConfiguration<Emiss
         builder.HasIndex(entity => new { entity.FactorSetId, entity.CategoryId, entity.ActivityUnitId, entity.GasId })
             .HasFilter("tenant_id is null")
             .HasDatabaseName("uq_emission_factors_global_lookup")
-            .IsUnique();
+            .IsUnique()
+            .AreNullsDistinct(false);
         builder.HasIndex(entity => new { entity.TenantId, entity.FactorSetId, entity.CategoryId, entity.ActivityUnitId, entity.GasId })
             .HasFilter("tenant_id is not null")
             .HasDatabaseName("uq_emission_factors_tenant_lookup")
-            .IsUnique();
+            .IsUnique()
+            .AreNullsDistinct(false);
 
         builder.Property(entity => entity.Id).HasColumnName("id");
         builder.Property(entity => entity.TenantId).HasColumnName("tenant_id");
