@@ -10,5 +10,6 @@ public sealed class AuditLog : ITenantOwnedEntity
     public required string Action { get; init; }
     public required string EntityName { get; init; }
     public string? EntityId { get; init; }
+    public string DetailsJson { get; init; } = "{}";
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 }

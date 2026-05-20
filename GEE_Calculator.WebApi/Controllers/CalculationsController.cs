@@ -42,4 +42,24 @@ public sealed class CalculationsController(IEmissionCalculationService calculati
             });
         }
     }
+
+    [HttpPost("~/api/inventories/{inventoryId:guid}/calculate")]
+    public async Task<ActionResult<RunEmissionCalculationResponse>> CalculateInventory(
+        Guid inventoryId,
+        CalculateInventoryRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await calculationService.CalculateInventoryAsync(inventoryId, request, cancellationToken));
+        }
+        catch (EmissionCalculationException exception)
+        {
+            return BadRequest(new
+            {
+                error = "calculation_error",
+                message = exception.Message
+            });
+        }
+    }
 }

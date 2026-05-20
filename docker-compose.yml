@@ -17,6 +17,12 @@ services:
     depends_on:
       gee-calculator-postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent --show-error http://localhost:8080/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   gee-calculator-postgres:
     container_name: gee-calculator-postgres

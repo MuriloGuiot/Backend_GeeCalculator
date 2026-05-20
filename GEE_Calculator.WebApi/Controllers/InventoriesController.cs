@@ -9,6 +9,26 @@ namespace GEE_Calculator.WebApi.Controllers;
 [Route("api/inventories")]
 public sealed class InventoriesController(IInventoryService inventoryService) : ControllerBase
 {
+    [HttpPost]
+    public async Task<ActionResult<InventorySummaryResponse>> Create(
+        CreateInventoryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var inventory = await inventoryService.CreateAsync(request, cancellationToken);
+            return CreatedAtAction(nameof(Get), new { inventoryId = inventory.Id }, inventory);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new
+            {
+                error = "inventory_error",
+                message = exception.Message
+            });
+        }
+    }
+
     [HttpGet]
     public async Task<ActionResult<PagedResponse<InventorySummaryResponse>>> List(
         [FromQuery] Guid? companyId = null,

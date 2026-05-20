@@ -58,44 +58,60 @@ public sealed class EmissionFactorCatalogRepository(GeeCalculatorDbContext dbCon
         int take,
         CancellationToken cancellationToken)
     {
-        return await BuildFactorQuery(tenantId, factorSetCode, scope)
-            .OrderBy(item => item.Scope)
-            .ThenBy(item => item.CategoryCode)
-            .ThenBy(item => item.ActivityUnitCode)
-            .Skip(skip)
-            .Take(take)
-            .ToArrayAsync(cancellationToken);
-    }
-
-    private IQueryable<EmissionFactorCatalogItem> BuildFactorQuery(Guid tenantId, string? factorSetCode, EmissionScope? scope)
-    {
+        var factorQuery = BuildFactorQuery(tenantId, factorSetCode, scope);
         var query =
-            from factor in dbContext.EmissionFactors.AsNoTracking()
+            from factor in factorQuery
             join factorSet in dbContext.EmissionFactorSets.AsNoTracking() on factor.FactorSetId equals factorSet.Id
             join category in dbContext.EmissionCategories.AsNoTracking() on factor.CategoryId equals category.Id
             join unit in dbContext.ActivityUnits.AsNoTracking() on factor.ActivityUnitId equals unit.Id
-            where factor.TenantId == null || factor.TenantId == tenantId
-            select new EmissionFactorCatalogItem(
-                factor.Id,
-                factorSet.Code,
-                category.Scope,
-                category.Code,
-                category.Name,
-                unit.Code,
-                factor.FactorKgPerUnit,
-                factor.Gwp,
-                factor.FactorKgCo2ePerUnit,
-                factor.CalculationNotes,
-                factor.TenantId.HasValue);
+            select new
+            {
+                Factor = factor,
+                FactorSet = factorSet,
+                Category = category,
+                Unit = unit
+            };
+
+        return await query
+            .OrderBy(item => item.Category.Scope)
+            .ThenBy(item => item.Category.Code)
+            .ThenBy(item => item.Unit.Code)
+            .Skip(skip)
+            .Take(take)
+            .Select(item => new EmissionFactorCatalogItem(
+                item.Factor.Id,
+                item.FactorSet.Code,
+                item.Category.Scope,
+                item.Category.Code,
+                item.Category.Name,
+                item.Unit.Code,
+                item.Factor.FactorKgPerUnit,
+                item.Factor.Gwp,
+                item.Factor.FactorKgCo2ePerUnit,
+                item.Factor.CalculationNotes,
+                item.Factor.TenantId.HasValue))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    private IQueryable<EmissionFactor> BuildFactorQuery(
+        Guid tenantId,
+        string? factorSetCode,
+        EmissionScope? scope)
+    {
+        var query = dbContext.EmissionFactors
+            .AsNoTracking()
+            .Where(factor => factor.TenantId == null || factor.TenantId == tenantId);
 
         if (!string.IsNullOrWhiteSpace(factorSetCode))
         {
-            query = query.Where(item => item.FactorSetCode == factorSetCode);
+            query = query.Where(factor => dbContext.EmissionFactorSets
+                .Any(factorSet => factorSet.Id == factor.FactorSetId && factorSet.Code == factorSetCode));
         }
 
         if (scope.HasValue)
         {
-            query = query.Where(item => item.Scope == scope.Value);
+            query = query.Where(factor => dbContext.EmissionCategories
+                .Any(category => category.Id == factor.CategoryId && category.Scope == scope.Value));
         }
 
         return query;

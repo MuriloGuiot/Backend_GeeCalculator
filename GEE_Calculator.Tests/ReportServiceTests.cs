@@ -18,8 +18,11 @@ public sealed class ReportServiceTests
 
         Assert.Equal(593.75m, response.TotalKgCo2e);
         Assert.Equal(0.59375m, response.TotalTCo2e);
+        Assert.Equal(25m, response.TotalBiogenicKgCo2);
+        Assert.Equal(5m, response.TotalBiogenicRemovalKgCo2);
         Assert.Equal(1m, response.CarbonCreditsRequired);
         Assert.Equal(2, response.Scopes.Count);
+        Assert.Single(response.Categories);
     }
 
     private sealed class FixedTenantAccessor : ICurrentTenantAccessor
@@ -40,8 +43,20 @@ public sealed class ReportServiceTests
         {
             return Task.FromResult<IReadOnlyCollection<ScopeDashboardItem>>(
             [
-                new ScopeDashboardItem(EmissionScope.Scope1, 536m, 0.536m),
-                new ScopeDashboardItem(EmissionScope.Scope2, 57.75m, 0.05775m)
+                new ScopeDashboardItem(EmissionScope.Scope1, 536m, 0.536m, 25m, 0.025m, 5m, 0.005m),
+                new ScopeDashboardItem(EmissionScope.Scope2, 57.75m, 0.05775m, 0m, 0m, 0m, 0m)
+            ]);
+        }
+
+        public Task<IReadOnlyCollection<CategoryDashboardItem>> GetCategoryTotalsAsync(
+            Guid tenantId,
+            Guid? companyId,
+            int? year,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyCollection<CategoryDashboardItem>>(
+            [
+                new CategoryDashboardItem(EmissionScope.Scope1, "diesel_rodoviario", "Diesel rodoviario", 536m, 0.536m, 25m, 0.025m, 5m, 0.005m)
             ]);
         }
 
@@ -53,7 +68,7 @@ public sealed class ReportServiceTests
         {
             return Task.FromResult<IReadOnlyCollection<MonthlyEmissionsItem>>(
             [
-                new MonthlyEmissionsItem(2026, 5, 593.75m, 0.59375m)
+                new MonthlyEmissionsItem(2026, 5, 593.75m, 0.59375m, 25m, 0.025m, 5m, 0.005m)
             ]);
         }
     }

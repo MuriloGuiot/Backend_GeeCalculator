@@ -1,14 +1,20 @@
 using GEE_Calculator.Domain.Calculations;
+using GEE_Calculator.Domain.Auth;
 using GEE_Calculator.Domain.Entities;
 using GEE_Calculator.Domain.Enums;
 using GEE_Calculator.Domain.Tenancy;
+using System.Globalization;
+using System.Text.Json;
 
 namespace GEE_Calculator.Application.Calculations;
 
 public sealed class EmissionCalculationService(
     IEmissionCalculationRepository calculationRepository,
-    ICurrentTenantAccessor currentTenantAccessor) : IEmissionCalculationService
+    ICurrentTenantAccessor currentTenantAccessor,
+    ICurrentUserContext currentUserContext) : IEmissionCalculationService
 {
+    private const string CalculationVersion = "gee-v1";
+
     public CalculateEmissionPreviewResponse Preview(CalculateEmissionPreviewRequest request)
     {
         if (request.ActivityValue < 0)
@@ -54,8 +60,6 @@ public sealed class EmissionCalculationService(
         var inventory = await CreateInventoryAsync(tenant.Id, company.Id, request, cancellationToken);
         var factorSet = await ResolveFactorSetAsync(request.FactorSetCode, cancellationToken);
 
-        var groupedResults = new Dictionary<EmissionScope, decimal>();
-
         foreach (var entryRequest in request.Entries)
         {
             var category = await calculationRepository.GetCategoryByCodeAsync(entryRequest.CategoryCode, cancellationToken)
@@ -64,14 +68,18 @@ public sealed class EmissionCalculationService(
             var unit = await calculationRepository.GetActivityUnitByCodeAsync(entryRequest.ActivityUnitCode, cancellationToken)
                 ?? throw new EmissionCalculationException($"Activity unit '{entryRequest.ActivityUnitCode}' was not found.");
 
-            var factor = await calculationRepository.GetEmissionFactorAsync(
-                    factorSet.Id,
-                    category.Id,
-                    unit.Id,
-                    tenant.Id,
-                    cancellationToken)
-                ?? throw new EmissionCalculationException(
-                    $"Emission factor not found for category '{entryRequest.CategoryCode}' and unit '{entryRequest.ActivityUnitCode}'.");
+            var calculationMethod = NormalizeCalculationMethod(entryRequest.CalculationMethod);
+            if (!IsReportedTotal(calculationMethod))
+            {
+                _ = await calculationRepository.GetEmissionFactorAsync(
+                        factorSet.Id,
+                        category.Id,
+                        unit.Id,
+                        tenant.Id,
+                        cancellationToken)
+                    ?? throw new EmissionCalculationException(
+                        $"Emission factor not found for category '{entryRequest.CategoryCode}' and unit '{entryRequest.ActivityUnitCode}' in factor set '{factorSet.Code}'.");
+            }
 
             var activityEntry = new ActivityEntry
             {
@@ -80,70 +88,143 @@ public sealed class EmissionCalculationService(
                 CategoryId = category.Id,
                 ActivityUnitId = unit.Id,
                 ActivityValue = entryRequest.ActivityValue,
+                SourceName = NormalizeOptionalText(entryRequest.SourceName),
+                CalculationMethod = calculationMethod,
                 EvidenceRef = entryRequest.EvidenceRef,
-                MetadataJson = string.IsNullOrWhiteSpace(entryRequest.MetadataJson) ? "{}" : entryRequest.MetadataJson
+                MetadataJson = NormalizeMetadata(entryRequest.MetadataJson)
             };
 
             await calculationRepository.AddActivityEntryAsync(activityEntry, cancellationToken);
+            calculationRepository.AddAuditLog(CreateAuditLog(
+                tenant.Id,
+                "activity_entry.created",
+                nameof(ActivityEntry),
+                activityEntry.Id,
+                new
+                {
+                    inventoryId = inventory.Id,
+                    categoryCode = category.Code,
+                    activityUnitCode = unit.Code,
+                    activityEntry.ActivityValue,
+                    activityEntry.CalculationMethod,
+                    createdBy = "calculation.run"
+                }));
+        }
 
-            var totalKgCo2e = entryRequest.ActivityValue * factor.FactorKgCo2ePerUnit;
-            groupedResults[category.Scope] = groupedResults.GetValueOrDefault(category.Scope) + totalKgCo2e;
+        await calculationRepository.SaveChangesAsync(cancellationToken);
+
+        var inventoryItem = await calculationRepository.GetInventoryForCalculationAsync(
+                tenant.Id,
+                inventory.Id,
+                cancellationToken)
+            ?? throw new EmissionCalculationException($"Inventory '{inventory.Id}' was not found.");
+
+        return await CalculateInventoryCoreAsync(tenant.Id, inventoryItem, factorSet, cancellationToken);
+    }
+
+    public async Task<RunEmissionCalculationResponse> CalculateInventoryAsync(
+        Guid inventoryId,
+        CalculateInventoryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = ResolveTenantId();
+        await EnsureTenantAsync(tenantId, cancellationToken);
+
+        var inventory = await calculationRepository.GetInventoryForCalculationAsync(
+                tenantId,
+                inventoryId,
+                cancellationToken)
+            ?? throw new EmissionCalculationException($"Inventory '{inventoryId}' was not found for the current tenant.");
+
+        var factorSet = await ResolveFactorSetAsync(request.FactorSetCode, cancellationToken);
+        return await CalculateInventoryCoreAsync(tenantId, inventory, factorSet, cancellationToken);
+    }
+
+    private async Task<RunEmissionCalculationResponse> CalculateInventoryCoreAsync(
+        Guid tenantId,
+        CalculationInventoryItem inventory,
+        EmissionFactorSet factorSet,
+        CancellationToken cancellationToken)
+    {
+        var entries = await calculationRepository.ListActiveEntriesAsync(tenantId, inventory.Id, cancellationToken);
+        if (entries.Count == 0)
+        {
+            throw new EmissionCalculationException("The inventory must contain at least one active activity entry before calculation.");
         }
 
         var calculationRun = new CalculationRun
         {
-            TenantId = tenant.Id,
+            TenantId = tenantId,
             InventoryId = inventory.Id,
             FactorSetId = factorSet.Id,
-            CalculationVersion = "gee-v0"
+            CalculationVersion = CalculationVersion
         };
 
         await calculationRepository.AddCalculationRunAsync(calculationRun, cancellationToken);
 
-        var scopeSummaries = groupedResults
-            .OrderBy(item => item.Key)
-            .Select(item =>
-            {
-                var result = new CalculationResult
-                {
-                    TenantId = tenant.Id,
-                    CalculationRunId = calculationRun.Id,
-                    Scope = item.Key,
-                    TotalKgCo2e = item.Value
-                };
-
-                calculationRepository.AddCalculationResult(result);
-
-                return new ScopeEmissionSummary(
-                    Scope: item.Key,
-                    TotalKgCo2e: item.Value,
-                    TotalTCo2e: item.Value / 1000m);
-            })
-            .ToArray();
-
-        calculationRepository.AddAuditLog(new AuditLog
+        var calculatedEntries = new List<EntryCalculation>();
+        foreach (var entry in entries)
         {
-            TenantId = tenant.Id,
-            Action = "calculation.run",
-            EntityName = nameof(CalculationRun),
-            EntityId = calculationRun.Id.ToString()
-        });
+            var factor = await ResolveEmissionFactorAsync(entry, factorSet, tenantId, cancellationToken);
+            var calculatedEntry = CalculateEntry(entry, factor);
+            calculatedEntries.Add(calculatedEntry);
+
+            calculationRepository.AddCalculationResult(new CalculationResult
+            {
+                TenantId = tenantId,
+                CalculationRunId = calculationRun.Id,
+                ActivityEntryId = entry.Id,
+                Scope = entry.Scope,
+                CategoryId = entry.CategoryId,
+                GasId = factor?.GasId,
+                EmissionFactorId = factor?.Id,
+                ActivityUnitId = entry.ActivityUnitId,
+                ActivityValue = entry.ActivityValue,
+                FactorKgCo2ePerUnit = factor?.FactorKgCo2ePerUnit,
+                TotalKgCo2e = calculatedEntry.TotalKgCo2e,
+                BiogenicKgCo2 = calculatedEntry.BiogenicKgCo2,
+                BiogenicRemovalKgCo2 = calculatedEntry.BiogenicRemovalKgCo2
+            });
+        }
+
+        calculationRepository.AddAuditLog(CreateAuditLog(
+            tenantId,
+            "calculation.run",
+            nameof(CalculationRun),
+            calculationRun.Id,
+            new
+            {
+                inventoryId = inventory.Id,
+                inventory.CompanyId,
+                factorSetCode = factorSet.Code,
+                entries = calculatedEntries.Count,
+                totalKgCo2e = calculatedEntries.Sum(item => item.TotalKgCo2e)
+            }));
 
         await calculationRepository.SaveChangesAsync(cancellationToken);
 
-        var totalKg = scopeSummaries.Sum(item => item.TotalKgCo2e);
+        var scopeSummaries = BuildScopeSummaries(calculatedEntries);
+        var categorySummaries = BuildCategorySummaries(calculatedEntries);
+        var totalKg = calculatedEntries.Sum(item => item.TotalKgCo2e);
         var totalT = totalKg / 1000m;
+        var totalBiogenicKg = calculatedEntries.Sum(item => item.BiogenicKgCo2);
+        var totalBiogenicRemovalKg = calculatedEntries.Sum(item => item.BiogenicRemovalKgCo2);
 
         return new RunEmissionCalculationResponse(
-            TenantId: tenant.Id,
-            CompanyId: company.Id,
+            TenantId: tenantId,
+            CompanyId: inventory.CompanyId,
             InventoryId: inventory.Id,
             CalculationRunId: calculationRun.Id,
             FactorSetCode: factorSet.Code,
             TotalKgCo2e: totalKg,
             TotalTCo2e: totalT,
+            TotalBiogenicKgCo2: totalBiogenicKg,
+            TotalBiogenicTCo2: totalBiogenicKg / 1000m,
+            TotalBiogenicRemovalKgCo2: totalBiogenicRemovalKg,
+            TotalBiogenicRemovalTCo2: totalBiogenicRemovalKg / 1000m,
             CarbonCreditsRequired: Math.Ceiling(totalT),
-            ScopeSummaries: scopeSummaries);
+            ScopeSummaries: scopeSummaries,
+            CategorySummaries: categorySummaries);
     }
 
     private Guid ResolveTenantId()
@@ -216,6 +297,18 @@ public sealed class EmissionCalculationService(
         };
 
         await calculationRepository.AddCompanyAsync(company, cancellationToken);
+        calculationRepository.AddAuditLog(CreateAuditLog(
+            tenantId,
+            "company.created",
+            nameof(Company),
+            company.Id,
+            new
+            {
+                company.LegalName,
+                company.TaxId,
+                company.ExternalCompanyId,
+                createdBy = "calculation.run"
+            }));
         return company;
     }
 
@@ -248,6 +341,19 @@ public sealed class EmissionCalculationService(
         };
 
         await calculationRepository.AddInventoryAsync(inventory, cancellationToken);
+        calculationRepository.AddAuditLog(CreateAuditLog(
+            tenantId,
+            "inventory.created",
+            nameof(EmissionInventory),
+            inventory.Id,
+            new
+            {
+                companyId,
+                request.PeriodType,
+                request.Year,
+                request.Month,
+                createdBy = "calculation.run"
+            }));
         return inventory;
     }
 
@@ -260,6 +366,226 @@ public sealed class EmissionCalculationService(
         }
 
         return await calculationRepository.GetLatestFactorSetAsync(cancellationToken);
+    }
+
+    private async Task<EmissionFactor?> ResolveEmissionFactorAsync(
+        CalculationActivityEntry entry,
+        EmissionFactorSet factorSet,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        if (IsReportedTotal(entry.CalculationMethod))
+        {
+            return null;
+        }
+
+        return await calculationRepository.GetEmissionFactorAsync(
+                factorSet.Id,
+                entry.CategoryId,
+                entry.ActivityUnitId,
+                tenantId,
+                cancellationToken)
+            ?? throw new EmissionCalculationException(
+                $"Emission factor not found for category '{entry.CategoryCode}' and unit '{entry.ActivityUnitCode}' in factor set '{factorSet.Code}'.");
+    }
+
+    private static EntryCalculation CalculateEntry(CalculationActivityEntry entry, EmissionFactor? factor)
+    {
+        using var metadata = ParseMetadata(entry);
+        var root = metadata.RootElement;
+        var totalKgCo2e = IsReportedTotal(entry.CalculationMethod)
+            ? ResolveReportedTotalKgCo2e(entry, root)
+            : entry.ActivityValue * (factor?.FactorKgCo2ePerUnit
+                ?? throw new EmissionCalculationException("Factor-based calculation requires an emission factor."));
+
+        var biogenicKgCo2 = ReadDecimal(root, "biogenicKgCo2", "biogenic_kg_co2")
+            ?? ReadDecimal(root, "biogenicTCo2", "biogenic_t_co2") * 1000m
+            ?? 0m;
+        var biogenicRemovalKgCo2 = ReadDecimal(root, "biogenicRemovalKgCo2", "biogenic_removal_kg_co2")
+            ?? ReadDecimal(root, "biogenicRemovalTCo2", "biogenic_removal_t_co2") * 1000m
+            ?? 0m;
+
+        if (totalKgCo2e < 0 || biogenicKgCo2 < 0 || biogenicRemovalKgCo2 < 0)
+        {
+            throw new EmissionCalculationException("Calculated emission totals cannot be negative.");
+        }
+
+        return new EntryCalculation(
+            entry.Id,
+            entry.Scope,
+            entry.CategoryCode,
+            entry.CategoryName,
+            totalKgCo2e,
+            biogenicKgCo2,
+            biogenicRemovalKgCo2);
+    }
+
+    private static decimal ResolveReportedTotalKgCo2e(CalculationActivityEntry entry, JsonElement metadata)
+    {
+        var reportedKg = ReadDecimal(metadata, "reportedKgCo2e", "reported_kg_co2e");
+        if (reportedKg.HasValue)
+        {
+            return reportedKg.Value;
+        }
+
+        var reportedT = ReadDecimal(metadata, "reportedTCo2e", "reported_t_co2e");
+        if (reportedT.HasValue)
+        {
+            return reportedT.Value * 1000m;
+        }
+
+        return entry.ActivityUnitCode switch
+        {
+            "kgCO2e" => entry.ActivityValue,
+            "tCO2e" => entry.ActivityValue * 1000m,
+            _ => throw new EmissionCalculationException(
+                $"Reported-total entries must use unit 'kgCO2e'/'tCO2e' or include reportedKgCo2e/reportedTCo2e metadata. Entry '{entry.Id}' uses '{entry.ActivityUnitCode}'.")
+        };
+    }
+
+    private static JsonDocument ParseMetadata(CalculationActivityEntry entry)
+    {
+        try
+        {
+            return JsonDocument.Parse(string.IsNullOrWhiteSpace(entry.MetadataJson) ? "{}" : entry.MetadataJson);
+        }
+        catch (JsonException exception)
+        {
+            throw new EmissionCalculationException($"Activity entry '{entry.Id}' has invalid metadata JSON. {exception.Message}");
+        }
+    }
+
+    private static decimal? ReadDecimal(JsonElement root, params string[] names)
+    {
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        foreach (var property in root.EnumerateObject())
+        {
+            if (!names.Any(name => string.Equals(name, property.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            if (property.Value.ValueKind == JsonValueKind.Number &&
+                property.Value.TryGetDecimal(out var number))
+            {
+                return number;
+            }
+
+            if (property.Value.ValueKind == JsonValueKind.String &&
+                decimal.TryParse(
+                    property.Value.GetString(),
+                    NumberStyles.Number,
+                    CultureInfo.InvariantCulture,
+                    out var parsed))
+            {
+                return parsed;
+            }
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyCollection<ScopeEmissionSummary> BuildScopeSummaries(IReadOnlyCollection<EntryCalculation> calculatedEntries)
+    {
+        return calculatedEntries
+            .GroupBy(item => item.Scope)
+            .OrderBy(group => group.Key)
+            .Select(group =>
+            {
+                var totalKg = group.Sum(item => item.TotalKgCo2e);
+                var biogenicKg = group.Sum(item => item.BiogenicKgCo2);
+                var biogenicRemovalKg = group.Sum(item => item.BiogenicRemovalKgCo2);
+
+                return new ScopeEmissionSummary(
+                    group.Key,
+                    totalKg,
+                    totalKg / 1000m,
+                    biogenicKg,
+                    biogenicKg / 1000m,
+                    biogenicRemovalKg,
+                    biogenicRemovalKg / 1000m);
+            })
+            .ToArray();
+    }
+
+    private static IReadOnlyCollection<CategoryEmissionSummary> BuildCategorySummaries(IReadOnlyCollection<EntryCalculation> calculatedEntries)
+    {
+        return calculatedEntries
+            .GroupBy(item => new { item.Scope, item.CategoryCode, item.CategoryName })
+            .OrderBy(group => group.Key.Scope)
+            .ThenBy(group => group.Key.CategoryCode)
+            .Select(group =>
+            {
+                var totalKg = group.Sum(item => item.TotalKgCo2e);
+                var biogenicKg = group.Sum(item => item.BiogenicKgCo2);
+                var biogenicRemovalKg = group.Sum(item => item.BiogenicRemovalKgCo2);
+
+                return new CategoryEmissionSummary(
+                    group.Key.Scope,
+                    group.Key.CategoryCode,
+                    group.Key.CategoryName,
+                    totalKg,
+                    totalKg / 1000m,
+                    biogenicKg,
+                    biogenicKg / 1000m,
+                    biogenicRemovalKg,
+                    biogenicRemovalKg / 1000m);
+            })
+            .ToArray();
+    }
+
+    private static string NormalizeMetadata(string? metadataJson)
+    {
+        if (string.IsNullOrWhiteSpace(metadataJson))
+        {
+            return "{}";
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(metadataJson);
+            return JsonSerializer.Serialize(document.RootElement);
+        }
+        catch (JsonException exception)
+        {
+            throw new EmissionCalculationException($"MetadataJson must be valid JSON. {exception.Message}");
+        }
+    }
+
+    private static string NormalizeCalculationMethod(string? calculationMethod)
+    {
+        return string.IsNullOrWhiteSpace(calculationMethod)
+            ? "factor"
+            : calculationMethod.Trim().ToLowerInvariant();
+    }
+
+    private static bool IsReportedTotal(string calculationMethod)
+    {
+        return string.Equals(calculationMethod, "reported_total", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(calculationMethod, "reported", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(calculationMethod, "external_tool", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private AuditLog CreateAuditLog(Guid tenantId, string action, string entityName, Guid entityId, object details)
+    {
+        return new AuditLog
+        {
+            TenantId = tenantId,
+            ActorExternalUserId = currentUserContext.GetCurrentUser().Subject,
+            Action = action,
+            EntityName = entityName,
+            EntityId = entityId.ToString(),
+            DetailsJson = JsonSerializer.Serialize(details)
+        };
     }
 
     private static void ValidateRunRequest(RunEmissionCalculationRequest request)
@@ -277,6 +603,11 @@ public sealed class EmissionCalculationService(
         if (request.Year < 2000 || request.Year > 2100)
         {
             throw new EmissionCalculationException("Year must be between 2000 and 2100.");
+        }
+
+        if (!Enum.IsDefined(request.PeriodType))
+        {
+            throw new EmissionCalculationException("PeriodType must be Monthly (1) or Annual (2).");
         }
 
         if (request.PeriodType == PeriodType.Monthly && request.Month is not >= 1 and <= 12)
@@ -302,4 +633,13 @@ public sealed class EmissionCalculationService(
             }
         }
     }
+
+    private sealed record EntryCalculation(
+        Guid ActivityEntryId,
+        EmissionScope Scope,
+        string CategoryCode,
+        string CategoryName,
+        decimal TotalKgCo2e,
+        decimal BiogenicKgCo2,
+        decimal BiogenicRemovalKgCo2);
 }

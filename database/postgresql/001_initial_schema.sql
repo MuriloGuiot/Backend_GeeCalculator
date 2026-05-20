@@ -204,9 +204,13 @@ create table if not exists activity_entries (
     category_id uuid not null references emission_categories (id),
     activity_unit_id uuid not null references activity_units (id),
     activity_value numeric(18, 6) not null,
+    source_name varchar(240),
+    calculation_method varchar(80) not null default 'factor',
     evidence_ref text,
     metadata jsonb not null default '{}'::jsonb,
     created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
     constraint ck_activity_entries_activity_value
         check (activity_value >= 0)
 );
@@ -216,6 +220,9 @@ create index if not exists ix_activity_entries_tenant_inventory
 
 create index if not exists ix_activity_entries_category
     on activity_entries (category_id);
+
+create index if not exists ix_activity_entries_tenant_deleted_at
+    on activity_entries (tenant_id, deleted_at);
 
 create index if not exists ix_activity_entries_metadata
     on activity_entries using gin (metadata);
@@ -236,13 +243,24 @@ create table if not exists calculation_results (
     id uuid primary key default gen_random_uuid(),
     tenant_id uuid not null references tenants (id),
     calculation_run_id uuid not null references calculation_runs (id),
+    activity_entry_id uuid references activity_entries (id),
     scope emission_scope not null,
     category_id uuid references emission_categories (id),
     gas_id uuid references greenhouse_gases (id),
+    emission_factor_id uuid references emission_factors (id),
+    activity_unit_id uuid references activity_units (id),
+    activity_value numeric(18, 6),
+    factor_kg_co2e_per_unit numeric(18, 8),
     total_kg_co2e numeric(18, 6) not null,
+    biogenic_kg_co2 numeric(18, 6) not null default 0,
+    biogenic_removal_kg_co2 numeric(18, 6) not null default 0,
     created_at timestamptz not null default now(),
     constraint ck_calculation_results_total_kg_co2e
-        check (total_kg_co2e >= 0)
+        check (total_kg_co2e >= 0),
+    constraint ck_calculation_results_biogenic_kg_co2
+        check (biogenic_kg_co2 >= 0),
+    constraint ck_calculation_results_biogenic_removal_kg_co2
+        check (biogenic_removal_kg_co2 >= 0)
 );
 
 create index if not exists ix_calculation_results_tenant_run
@@ -251,6 +269,9 @@ create index if not exists ix_calculation_results_tenant_run
 create index if not exists ix_calculation_results_scope_category
     on calculation_results (scope, category_id);
 
+create index if not exists ix_calculation_results_tenant_activity_entry
+    on calculation_results (tenant_id, activity_entry_id);
+
 create table if not exists audit_logs (
     id uuid primary key default gen_random_uuid(),
     tenant_id uuid not null references tenants (id),
@@ -258,8 +279,75 @@ create table if not exists audit_logs (
     action varchar(120) not null,
     entity_name varchar(120) not null,
     entity_id varchar(80),
+    details jsonb not null default '{}'::jsonb,
     created_at timestamptz not null default now()
 );
 
 create index if not exists ix_audit_logs_tenant_created_at
     on audit_logs (tenant_id, created_at desc);
+
+create table if not exists survey_templates (
+    id uuid primary key default gen_random_uuid(),
+    code varchar(120) not null,
+    name varchar(240) not null,
+    version_label varchar(80) not null,
+    factor_set_id uuid references emission_factor_sets (id),
+    is_active boolean not null default true,
+    created_at timestamptz not null default now(),
+    constraint uq_survey_templates_code unique (code)
+);
+
+create index if not exists ix_survey_templates_active_code
+    on survey_templates (is_active, code);
+
+create table if not exists survey_sections (
+    id uuid primary key default gen_random_uuid(),
+    template_id uuid not null references survey_templates (id) on delete cascade,
+    code varchar(120) not null,
+    title varchar(240) not null,
+    description text,
+    sort_order integer not null,
+    created_at timestamptz not null default now(),
+    constraint uq_survey_sections_template_code unique (template_id, code)
+);
+
+create index if not exists ix_survey_sections_template_sort_order
+    on survey_sections (template_id, sort_order);
+
+create table if not exists survey_questions (
+    id uuid primary key default gen_random_uuid(),
+    section_id uuid not null references survey_sections (id) on delete cascade,
+    code varchar(160) not null,
+    prompt varchar(500) not null,
+    help_text text,
+    answer_type varchar(40) not null,
+    is_required boolean not null default false,
+    sort_order integer not null,
+    visibility_rule jsonb not null default '{}'::jsonb,
+    mapping jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now(),
+    constraint uq_survey_questions_section_code unique (section_id, code)
+);
+
+create index if not exists ix_survey_questions_section_sort_order
+    on survey_questions (section_id, sort_order);
+
+create index if not exists ix_survey_questions_visibility_rule
+    on survey_questions using gin (visibility_rule);
+
+create index if not exists ix_survey_questions_mapping
+    on survey_questions using gin (mapping);
+
+create table if not exists survey_options (
+    id uuid primary key default gen_random_uuid(),
+    question_id uuid not null references survey_questions (id) on delete cascade,
+    code varchar(120) not null,
+    label varchar(240) not null,
+    value varchar(240),
+    sort_order integer not null,
+    created_at timestamptz not null default now(),
+    constraint uq_survey_options_question_code unique (question_id, code)
+);
+
+create index if not exists ix_survey_options_question_sort_order
+    on survey_options (question_id, sort_order);

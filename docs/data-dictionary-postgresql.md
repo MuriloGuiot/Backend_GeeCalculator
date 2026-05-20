@@ -1,6 +1,6 @@
 # Dicionario de dados inicial - PostgreSQL
 
-Data: 22/04/2026
+Data: 17/05/2026
 
 Este documento descreve o modelo inicial de dados da API `GEE_Calculator`. A modelagem foi revisada apos alinhamento com a GoLedger: a calculadora deve ser agnostica a sistemas externos e priorizar a logica core de calculo GEE. Por isso, a autenticacao nao depende diretamente de Keycloak neste momento; o isolamento por `tenant_id` permanece obrigatorio e pode ser recebido por header ou resolvido via API Key simplificada.
 
@@ -250,9 +250,13 @@ Entradas informadas pelo usuario ou sistema integrador.
 | `category_id` | `uuid` | Sim | Categoria GEE. |
 | `activity_unit_id` | `uuid` | Sim | Unidade da atividade. |
 | `activity_value` | `numeric(18,6)` | Sim | Valor informado. |
+| `source_name` | `varchar(240)` | Nao | Nome da fonte/registro apresentado ao usuario, como frota, unidade ou fatura. |
+| `calculation_method` | `varchar(80)` | Sim | Metodo usado pelo motor: `factor` por padrao, `reported_total` para totais ja calculados por outra ferramenta. |
 | `evidence_ref` | `text` | Nao | Referencia de evidencia ou documento. |
 | `metadata` | `jsonb` | Sim | Campos especificos por categoria. |
 | `created_at` | `timestamptz` | Sim | Data de criacao. |
+| `updated_at` | `timestamptz` | Nao | Ultima alteracao da entrada. |
+| `deleted_at` | `timestamptz` | Nao | Exclusao logica; entradas removidas deixam de entrar nos calculos futuros. |
 
 O campo `metadata` evita alterar a tabela para cada categoria nova. Exemplo para gas refrigerante:
 
@@ -279,17 +283,24 @@ Execucao do motor de calculo.
 
 ### `calculation_results`
 
-Resultados agregados por escopo, categoria e gas quando necessario.
+Resultados por entrada calculada. O dashboard agrega estes registros por escopo, categoria e periodo. Linhas antigas sem `activity_entry_id` continuam compativeis como resultados agregados legados.
 
 | Coluna | Tipo | Obrigatorio | Descricao |
 | --- | --- | --- | --- |
 | `id` | `uuid` | Sim | Identificador do resultado. |
 | `tenant_id` | `uuid` | Sim | Tenant proprietario. |
 | `calculation_run_id` | `uuid` | Sim | Execucao associada. |
+| `activity_entry_id` | `uuid` | Nao | Entrada que originou o resultado. |
 | `scope` | `emission_scope` | Sim | Escopo agregado. |
 | `category_id` | `uuid` | Nao | Categoria agregada. |
 | `gas_id` | `uuid` | Nao | Gas agregado. |
+| `emission_factor_id` | `uuid` | Nao | Fator de emissao usado, quando aplicavel. |
+| `activity_unit_id` | `uuid` | Nao | Unidade da atividade usada no calculo. |
+| `activity_value` | `numeric(18,6)` | Nao | Snapshot do valor de atividade calculado. |
+| `factor_kg_co2e_per_unit` | `numeric(18,8)` | Nao | Snapshot do fator usado no calculo. |
 | `total_kg_co2e` | `numeric(18,6)` | Sim | Total em kgCO2e. |
+| `biogenic_kg_co2` | `numeric(18,6)` | Sim | CO2 biogenico reportado separadamente, em kg. |
+| `biogenic_removal_kg_co2` | `numeric(18,6)` | Sim | Remocoes biogenicas reportadas separadamente, em kg. |
 | `created_at` | `timestamptz` | Sim | Data de criacao. |
 
 ### `audit_logs`
@@ -304,17 +315,84 @@ Trilha de auditoria tecnica.
 | `action` | `varchar(120)` | Sim | Acao executada. |
 | `entity_name` | `varchar(120)` | Sim | Entidade afetada. |
 | `entity_id` | `varchar(80)` | Nao | ID da entidade afetada. |
+| `details` | `jsonb` | Sim | Snapshot minimo da acao para auditoria e rastreabilidade. |
 | `created_at` | `timestamptz` | Sim | Data do evento. |
+
+## Smart Survey
+
+O Smart Survey e versionado como catalogo global. A ideia e o front-end ler perguntas, opcoes, regras de visibilidade e mapeamentos para gerar `activity_entries`, sem colocar regras do GHG Protocol dentro da interface.
+
+### `survey_templates`
+
+Cabecalho de um questionario versionado.
+
+| Coluna | Tipo | Obrigatorio | Descricao |
+| --- | --- | --- | --- |
+| `id` | `uuid` | Sim | Identificador do template. |
+| `code` | `varchar(120)` | Sim | Codigo tecnico, como `gogreen_month_1_v1`. |
+| `name` | `varchar(240)` | Sim | Nome legivel. |
+| `version_label` | `varchar(80)` | Sim | Rotulo de versao. |
+| `factor_set_id` | `uuid` | Nao | Conjunto de fatores recomendado. |
+| `is_active` | `boolean` | Sim | Indica se pode ser usado pelo front-end. |
+| `created_at` | `timestamptz` | Sim | Data de criacao. |
+
+### `survey_sections`
+
+Agrupa perguntas por modulo GHG, como combustao movel, fugitivas, mudanca no uso do solo e energia eletrica.
+
+| Coluna | Tipo | Obrigatorio | Descricao |
+| --- | --- | --- | --- |
+| `id` | `uuid` | Sim | Identificador da secao. |
+| `template_id` | `uuid` | Sim | Template proprietario. |
+| `code` | `varchar(120)` | Sim | Codigo tecnico da secao. |
+| `title` | `varchar(240)` | Sim | Titulo exibivel. |
+| `description` | `text` | Nao | Descricao tecnica. |
+| `sort_order` | `integer` | Sim | Ordem de exibicao. |
+| `created_at` | `timestamptz` | Sim | Data de criacao. |
+
+### `survey_questions`
+
+Perguntas dinamicas com regras e mapeamentos em JSON.
+
+| Coluna | Tipo | Obrigatorio | Descricao |
+| --- | --- | --- | --- |
+| `id` | `uuid` | Sim | Identificador da pergunta. |
+| `section_id` | `uuid` | Sim | Secao proprietaria. |
+| `code` | `varchar(160)` | Sim | Codigo tecnico da pergunta. |
+| `prompt` | `varchar(500)` | Sim | Texto da pergunta. |
+| `help_text` | `text` | Nao | Orientacao complementar. |
+| `answer_type` | `varchar(40)` | Sim | Tipo: `boolean`, `decimal`, `select`, `multiselect`, `text`. |
+| `is_required` | `boolean` | Sim | Obrigatoriedade. |
+| `sort_order` | `integer` | Sim | Ordem na secao. |
+| `visibility_rule` | `jsonb` | Sim | Regra para exibir a pergunta conforme respostas anteriores. |
+| `mapping` | `jsonb` | Sim | Mapeamento para `activity_entries` ou `metadata`. |
+| `created_at` | `timestamptz` | Sim | Data de criacao. |
+
+### `survey_options`
+
+Opcoes de perguntas de selecao.
+
+| Coluna | Tipo | Obrigatorio | Descricao |
+| --- | --- | --- | --- |
+| `id` | `uuid` | Sim | Identificador da opcao. |
+| `question_id` | `uuid` | Sim | Pergunta proprietaria. |
+| `code` | `varchar(120)` | Sim | Codigo tecnico. |
+| `label` | `varchar(240)` | Sim | Texto exibivel. |
+| `value` | `varchar(240)` | Nao | Valor enviado pelo front-end. |
+| `sort_order` | `integer` | Sim | Ordem de exibicao. |
+| `created_at` | `timestamptz` | Sim | Data de criacao. |
 
 ## Fluxo esperado da API
 
 1. A requisicao chega com `X-Tenant-Id` e, opcionalmente, `X-Api-Key`.
 2. A API resolve o tenant.
 3. A API grava ou consulta dados sempre filtrando por `tenant_id`.
-4. O usuario envia entradas de atividade por categoria e unidade.
-5. O motor busca o fator correto em `emission_factors`.
-6. O calculo aplica `atividade * fator_kg_co2e_per_unit`.
-7. A execucao e os resultados sao gravados em `calculation_runs` e `calculation_results`.
+4. O front pode ler `survey_templates` para montar perguntas dinamicas.
+5. O usuario envia entradas de atividade por categoria, unidade e metodo de calculo.
+6. O motor busca o fator correto em `emission_factors` ou aceita totais reportados em `reported_total`.
+7. O calculo aplica `atividade * fator_kg_co2e_per_unit`, quando aplicavel.
+8. A execucao e os resultados por entrada sao gravados em `calculation_runs` e `calculation_results`.
+9. O dashboard agrega escopo, categoria, linha do tempo, CO2 biogenico e remocoes.
 
 ## Estado atual da implementacao
 
@@ -325,7 +403,11 @@ No estado atual do projeto:
 - o contexto de tenant por header ja foi implementado;
 - a API Key simplificada de desenvolvimento ja foi prevista;
 - existem seeds tecnicos iniciais para ambiente local;
-- o fluxo `POST /api/calculations/run` ja grava inventario, entradas e resultados.
+- o fluxo `POST /api/calculations/run` permanece compativel;
+- o fluxo preferencial do mes 1 e `empresa -> inventario -> entradas -> calcular inventario -> dashboard -> auditoria`;
+- entradas possuem CRUD proprio em `/api/inventories/{inventoryId}/entries`;
+- o motor grava resultados detalhados por entrada e snapshots de fator;
+- o Smart Survey inicial esta versionado em `/api/surveys/templates/gogreen_month_1_v1`.
 
 Valores de desenvolvimento local:
 
@@ -334,7 +416,8 @@ Valores de desenvolvimento local:
 
 ## Pendencias para proximas etapas
 
-- ampliar seeds com fatores oficiais e categorias adicionais dos Escopos 1, 2 e 3;
+- substituir os fatores de desenvolvimento por carga homologada da ferramenta GHG Protocol 2026;
+- ampliar o Smart Survey ate cobrir todas as abas relevantes da ferramenta oficial;
 - definir a primeira fonte oficial homologada de fatores de emissao;
 - substituir a autenticacao temporaria pela integracao oficial da GoLedger quando disponivel;
 - ampliar testes automatizados e cenarios de validacao;

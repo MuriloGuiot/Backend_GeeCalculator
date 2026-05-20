@@ -24,6 +24,10 @@ public sealed class GeeCalculatorDbContext(
     public DbSet<EmissionInventory> EmissionInventories => Set<EmissionInventory>();
     public DbSet<ExternalUserIdentity> ExternalUserIdentities => Set<ExternalUserIdentity>();
     public DbSet<GreenhouseGas> GreenhouseGases => Set<GreenhouseGas>();
+    public DbSet<SurveyOption> SurveyOptions => Set<SurveyOption>();
+    public DbSet<SurveyQuestion> SurveyQuestions => Set<SurveyQuestion>();
+    public DbSet<SurveySection> SurveySections => Set<SurveySection>();
+    public DbSet<SurveyTemplate> SurveyTemplates => Set<SurveyTemplate>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
     private Guid? CurrentTenantId

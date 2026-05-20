@@ -19,6 +19,7 @@ public sealed class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
         builder.Property(entity => entity.Action).HasColumnName("action").HasMaxLength(120);
         builder.Property(entity => entity.EntityName).HasColumnName("entity_name").HasMaxLength(120);
         builder.Property(entity => entity.EntityId).HasColumnName("entity_id").HasMaxLength(80);
+        builder.Property(entity => entity.DetailsJson).HasColumnName("details").HasColumnType("jsonb").HasDefaultValue("{}");
         builder.Property(entity => entity.CreatedAt).HasColumnName("created_at");
 
         builder.HasOne<Tenant>()

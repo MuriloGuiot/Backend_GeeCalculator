@@ -1,6 +1,8 @@
 @GEE_Calculator_HostAddress = http://localhost:8080
 @DevelopmentTenantId = 11111111-1111-1111-1111-111111111111
 @DevelopmentApiKey = gee_dev_local_2026
+@CompanyId = 00000000-0000-0000-0000-000000000000
+@InventoryId = 00000000-0000-0000-0000-000000000000
 
 GET {{GEE_Calculator_HostAddress}}/api/health
 Accept: application/json
@@ -51,6 +53,20 @@ X-Api-Key: {{DevelopmentApiKey}}
 
 ###
 
+GET {{GEE_Calculator_HostAddress}}/api/surveys/templates
+Accept: application/json
+X-Tenant-Id: {{DevelopmentTenantId}}
+X-Api-Key: {{DevelopmentApiKey}}
+
+###
+
+GET {{GEE_Calculator_HostAddress}}/api/surveys/templates/gogreen_month_1_v1
+Accept: application/json
+X-Tenant-Id: {{DevelopmentTenantId}}
+X-Api-Key: {{DevelopmentApiKey}}
+
+###
+
 POST {{GEE_Calculator_HostAddress}}/api/calculations/preview
 Content-Type: application/json
 Accept: application/json
@@ -72,6 +88,51 @@ GET {{GEE_Calculator_HostAddress}}/api/inventories
 Accept: application/json
 X-Tenant-Id: {{DevelopmentTenantId}}
 X-Api-Key: {{DevelopmentApiKey}}
+
+###
+
+POST {{GEE_Calculator_HostAddress}}/api/inventories
+Content-Type: application/json
+Accept: application/json
+X-Tenant-Id: {{DevelopmentTenantId}}
+X-Api-Key: {{DevelopmentApiKey}}
+
+{
+  "companyId": "{{CompanyId}}",
+  "periodType": 2,
+  "year": 2026,
+  "month": null
+}
+
+###
+
+POST {{GEE_Calculator_HostAddress}}/api/inventories/{{InventoryId}}/entries
+Content-Type: application/json
+Accept: application/json
+X-Tenant-Id: {{DevelopmentTenantId}}
+X-Api-Key: {{DevelopmentApiKey}}
+
+{
+  "categoryCode": "energia_eletrica_sin",
+  "activityUnitCode": "MWh",
+  "activityValue": 1,
+  "sourceName": "Fatura energia SIN",
+  "calculationMethod": "factor",
+  "evidenceRef": "fatura-energia.pdf",
+  "metadataJson": "{\"surveyQuestionCode\":\"energia_eletrica_sin_mwh\"}"
+}
+
+###
+
+POST {{GEE_Calculator_HostAddress}}/api/inventories/{{InventoryId}}/calculate
+Content-Type: application/json
+Accept: application/json
+X-Tenant-Id: {{DevelopmentTenantId}}
+X-Api-Key: {{DevelopmentApiKey}}
+
+{
+  "factorSetCode": "dev_seed_2026"
+}
 
 ###
 
@@ -102,6 +163,8 @@ X-Api-Key: {{DevelopmentApiKey}}
       "categoryCode": "energia_eletrica_sin",
       "activityUnitCode": "kWh",
       "activityValue": 1500,
+      "sourceName": "Fatura energia abril",
+      "calculationMethod": "factor",
       "evidenceRef": "fatura-abril-2026.pdf",
       "metadataJson": "{\"source\":\"swagger\"}"
     },
@@ -109,6 +172,8 @@ X-Api-Key: {{DevelopmentApiKey}}
       "categoryCode": "diesel_rodoviario",
       "activityUnitCode": "L",
       "activityValue": 300,
+      "sourceName": "Abastecimentos frota",
+      "calculationMethod": "factor",
       "evidenceRef": "abastecimentos-abril.csv",
       "metadataJson": "{\"fleet\":\"caminhoes\"}"
     }

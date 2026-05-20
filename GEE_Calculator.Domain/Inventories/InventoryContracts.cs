@@ -15,6 +15,12 @@ public sealed record InventorySummaryResponse(
     decimal TotalTCo2e,
     decimal CarbonCreditsRequired);
 
+public sealed record CreateInventoryRequest(
+    Guid CompanyId,
+    PeriodType PeriodType,
+    int Year,
+    int? Month);
+
 public sealed record InventoryActivityEntryResponse(
     Guid Id,
     string CategoryCode,
@@ -22,9 +28,12 @@ public sealed record InventoryActivityEntryResponse(
     EmissionScope Scope,
     string ActivityUnitCode,
     decimal ActivityValue,
+    string? SourceName,
+    string CalculationMethod,
     string? EvidenceRef,
     string MetadataJson,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt);
 
 public sealed record InventoryCalculationRunResponse(
     Guid Id,
@@ -36,7 +45,11 @@ public sealed record InventoryCalculationRunResponse(
 public sealed record InventoryScopeResultResponse(
     EmissionScope Scope,
     decimal TotalKgCo2e,
-    decimal TotalTCo2e);
+    decimal TotalTCo2e,
+    decimal BiogenicKgCo2,
+    decimal BiogenicTCo2,
+    decimal BiogenicRemovalKgCo2,
+    decimal BiogenicRemovalTCo2);
 
 public sealed record InventoryDetailsResponse(
     Guid Id,
@@ -51,6 +64,8 @@ public sealed record InventoryDetailsResponse(
 
 public interface IInventoryService
 {
+    Task<InventorySummaryResponse> CreateAsync(CreateInventoryRequest request, CancellationToken cancellationToken = default);
+
     Task<PagedResponse<InventorySummaryResponse>> ListAsync(
         Guid? companyId,
         int? year,
@@ -64,6 +79,12 @@ public interface IInventoryService
 
 public interface IInventoryRepository
 {
+    Task<Domain.Entities.Company?> GetCompanyAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken);
+    Task<Domain.Entities.EmissionInventory?> GetAsync(Guid tenantId, Guid companyId, PeriodType periodType, int year, int? month, CancellationToken cancellationToken);
+    Task AddAsync(Domain.Entities.EmissionInventory inventory, CancellationToken cancellationToken);
+    void AddAuditLog(Domain.Entities.AuditLog auditLog);
+    Task SaveChangesAsync(CancellationToken cancellationToken);
+    Task<InventorySummaryItem?> GetSummaryAsync(Guid tenantId, Guid inventoryId, CancellationToken cancellationToken);
     Task<int> CountAsync(Guid tenantId, Guid? companyId, int? year, PeriodType? periodType, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<InventorySummaryItem>> ListAsync(
         Guid tenantId,

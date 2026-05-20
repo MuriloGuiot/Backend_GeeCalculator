@@ -15,9 +15,12 @@ public sealed class ReportService(
     {
         var tenantId = TenantContextResolver.ResolveRequiredTenantId(currentTenantAccessor);
         var scopeTotals = await reportRepository.GetScopeTotalsAsync(tenantId, companyId, year, cancellationToken);
+        var categoryTotals = await reportRepository.GetCategoryTotalsAsync(tenantId, companyId, year, cancellationToken);
         var monthlyTimeline = await reportRepository.GetMonthlyTimelineAsync(tenantId, companyId, year, cancellationToken);
         var totalKg = scopeTotals.Sum(item => item.TotalKgCo2e);
         var totalT = totalKg / 1000m;
+        var totalBiogenicKg = scopeTotals.Sum(item => item.BiogenicKgCo2);
+        var totalBiogenicRemovalKg = scopeTotals.Sum(item => item.BiogenicRemovalKgCo2);
 
         return new EmissionsDashboardResponse(
             tenantId,
@@ -25,8 +28,13 @@ public sealed class ReportService(
             year,
             totalKg,
             totalT,
+            totalBiogenicKg,
+            totalBiogenicKg / 1000m,
+            totalBiogenicRemovalKg,
+            totalBiogenicRemovalKg / 1000m,
             Math.Ceiling(totalT),
             scopeTotals,
+            categoryTotals,
             monthlyTimeline);
     }
 }
